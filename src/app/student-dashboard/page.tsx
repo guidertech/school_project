@@ -94,18 +94,12 @@ export default function StudentDashboardPage() {
 
     const searchDb = async () => {
       try {
-        // Query Supabase ppt table live
+        // Query Supabase presentation table live
         const { data, error } = await supabase
-          .from("ppt")
-          .select("id, name, category, topic_id, tags");
+          .from("presentation")
+          .select("id, topic_name, topic_category, topic_id, tags");
 
-        if (error) {
-          console.error("Supabase ppt search error:", error);
-          if (isMounted) setPptSuggestions([]);
-          return;
-        }
-
-        if (!data || data.length === 0) {
+        if (error || !data) {
           if (isMounted) setPptSuggestions([]);
           return;
         }
@@ -138,24 +132,24 @@ export default function StudentDashboardPage() {
                 seen.add(tagLower);
                 results.push({
                   displayLabel: tag,
-                  pptName: item.name || tag,
+                  pptName: item.topic_name || tag,
                   topic_id: item.topic_id || item.id,
-                  category: item.category,
+                  category: item.topic_category,
                 });
               }
             }
           });
 
           // 2. Check PPT name match
-          const nameLower = (item.name || "").toLowerCase();
+          const nameLower = (item.topic_name || "").toLowerCase();
           if (nameLower && nameLower.includes(q)) {
             if (!seen.has(nameLower)) {
               seen.add(nameLower);
               results.push({
-                displayLabel: item.name,
-                pptName: item.name,
+                displayLabel: item.topic_name,
+                pptName: item.topic_name,
                 topic_id: item.topic_id || item.id,
-                category: item.category,
+                category: item.topic_category,
               });
             }
           }

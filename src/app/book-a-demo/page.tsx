@@ -27,14 +27,32 @@ export default function BookADemoPage() {
 
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  const WHATSAPP_NUMBER = "917618181877"; // Enter your WhatsApp phone number with country code (e.g., 919876543210)
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const formattedMessage =
+      `*🎓 NEW SCHOOL DEMO REQUEST*\n\n` +
+      `👤 *Full Name:* ${formData.name}\n` +
+      `🏫 *School Name:* ${formData.schoolName}\n` +
+      `🏷️ *Designation:* ${formData.designation}\n` +
+      `✉️ *Email:* ${formData.email}\n` +
+      `📞 *Phone:* ${formData.phone}\n` +
+      `👥 *Teachers:* ${formData.numberOfTeachers}\n` +
+      `🎒 *Students:* ${formData.numberOfStudents}\n` +
+      `💬 *Message:* ${formData.message || "N/A"}`;
+
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(formattedMessage)}`;
+
+    // Open WhatsApp with pre-filled message
+    window.open(whatsappUrl, "_blank");
     setIsSubmitted(true);
   };
 
   return (
     <div className="pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-[#f8fafc]">
-      
+
       {/* HERO BANNER */}
       <div className="text-center max-w-3xl mx-auto mb-14">
         <span className="px-3.5 py-1 rounded-full bg-[#006783]/10 text-[#006783] border border-[#006783]/20 text-xs font-bold uppercase tracking-wider">
@@ -49,18 +67,18 @@ export default function BookADemoPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-        
+
         {/* FORM CONTAINER */}
         <div className="lg:col-span-7 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-lg relative">
-          
+
           {isSubmitted ? (
             <div className="text-center py-12 space-y-4 animate-fadeIn">
               <div className="w-16 h-16 rounded-full bg-[#096145]/10 text-[#096145] border border-[#096145]/30 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900">Demo Request Submitted!</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Demo Request Sent to WhatsApp!</h2>
               <p className="text-slate-600 text-sm max-w-md mx-auto">
-                Thank you, <span className="text-[#006783] font-bold">{formData.name}</span>. Our education specialist will contact you at <span className="text-[#006783] font-bold">{formData.email}</span> within 24 hours to schedule your personalized live demo.
+                Thank you, <span className="text-[#006783] font-bold">{formData.name}</span>. Your demo request has been opened in WhatsApp with pre-filled details. Click send on WhatsApp to complete!
               </p>
               <button
                 onClick={() => setIsSubmitted(false)}
@@ -197,7 +215,7 @@ export default function BookADemoPage() {
                 type="submit"
                 className="w-full py-4 rounded-xl font-bold text-sm text-white bg-[#006783] hover:bg-[#004e63] shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Request My Demo</span>
+                <span>Request My Demo via WhatsApp</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -213,9 +231,9 @@ export default function BookADemoPage() {
         <div className="lg:col-span-5 space-y-8">
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
             <h2 className="text-xl font-bold text-slate-900">What Happens Next?</h2>
-            
+
             <div className="space-y-6 relative before:absolute before:left-[19px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-              
+
               <div className="flex items-start gap-4 relative">
                 <div className="w-10 h-10 rounded-full bg-[#006783] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-2xs">
                   01

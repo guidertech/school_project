@@ -27,16 +27,18 @@ import {
 
 interface SlideRecord {
   id: number;
-  s_no: number;
+  created_at?: string;
   image: string;
   video: string;
+  slide_no: number;
   topic_id: number;
 }
 
-interface PptRecord {
+interface PresentationRecord {
   id: number;
-  name: string;
-  category?: string;
+  created_at?: string;
+  topic_name: string;
+  topic_category?: string;
   link?: string;
   topic_id: number;
   tags?: string[];
@@ -76,7 +78,7 @@ function TopicContent() {
   const [schoolName, setSchoolName] = useState<string>(urlSchoolName || "Green Valley High School");
 
   // Supabase fetched states
-  const [pptData, setPptData] = useState<PptRecord | null>(null);
+  const [pptData, setPptData] = useState<PresentationRecord | null>(null);
   const [dbSlides, setDbSlides] = useState<SlideRecord[]>([]);
   const [isLoadingPpt, setIsLoadingPpt] = useState(true);
 
@@ -122,20 +124,20 @@ function TopicContent() {
     fetchSchoolFromDb();
   }, [session?.user?.school_id, urlSchoolName]);
 
-  // Fetch PPT data and associated slides from Supabase
+  // Fetch Presentation data and associated slides from Supabase
   useEffect(() => {
     let isCancelled = false;
 
     const fetchPptAndSlides = async () => {
       setIsLoadingPpt(true);
       try {
-        let matchedPpt: PptRecord | null = null;
+        let matchedPpt: PresentationRecord | null = null;
 
         if (urlTopicId) {
           const numId = Number(urlTopicId);
           // Try matching by topic_id first
           const { data, error } = await supabase
-            .from("ppt")
+            .from("presentation")
             .select("*")
             .eq("topic_id", numId)
             .maybeSingle();
@@ -145,15 +147,15 @@ function TopicContent() {
           }
         }
 
-        // If not found by topic_id or id, search tags array, name or category in ppt table
+        // If not found by topic_id or id, search tags array, topic_name or topic_category in presentation table
         if (!matchedPpt && topicQuery) {
           const q = topicQuery.trim().toLowerCase();
-          const { data: allPpts, error } = await supabase.from("ppt").select("*");
+          const { data: allPpts, error } = await supabase.from("presentation").select("*");
 
           if (!error && allPpts) {
-            const found = allPpts.find((p: PptRecord) => {
-              const nameStr = (p.name || "").toLowerCase();
-              const catStr = (p.category || "").toLowerCase();
+            const found = allPpts.find((p: PresentationRecord) => {
+              const nameStr = (p.topic_name || "").toLowerCase();
+              const catStr = (p.topic_category || "").toLowerCase();
               if (nameStr.includes(q) || catStr.includes(q)) return true;
 
               if (p.tags) {
@@ -178,39 +180,38 @@ function TopicContent() {
         if (isCancelled) return;
 
         if (matchedPpt) {
-          console.log("Matched PPT from Supabase:", matchedPpt);
+          console.log("Matched Presentation from Supabase:", matchedPpt);
           setPptData(matchedPpt);
 
           const targetTopicId = matchedPpt.topic_id ? String(matchedPpt.topic_id) : String(matchedPpt.id);
-          const targetPptId = String(matchedPpt.id);
 
-          // Query slide table filtered strictly by targetTopicId
+          // Query slides table filtered strictly by targetTopicId
           const { data: slidesData, error: slidesErr } = await supabase
-            .from("slide")
+            .from("slides")
             .select("*")
             .eq("topic_id", Number(targetTopicId));
 
           if (isCancelled) return;
 
-          console.log("Supabase slide table query response -> Data:", slidesData, "Error:", slidesErr);
+          console.log("Supabase slides table query response -> Data:", slidesData, "Error:", slidesErr);
 
           let matchedSlides: SlideRecord[] = [];
 
           if (slidesData && slidesData.length > 0) {
             matchedSlides = [...slidesData];
-            // Sort slides by s_no
-            matchedSlides.sort((a, b) => (Number(a.s_no) || 0) - (Number(b.s_no) || 0));
+            // Sort slides by slide_no
+            matchedSlides.sort((a, b) => (Number(a.slide_no) || 0) - (Number(b.slide_no) || 0));
           }
 
           console.log("Final matchedSlides set:", matchedSlides);
           setDbSlides(matchedSlides);
         } else {
-          console.log("No matching PPT found in Supabase for query:", topicQuery);
+          console.log("No matching Presentation found in Supabase for query:", topicQuery);
           setPptData(null);
           setDbSlides([]);
         }
       } catch (err) {
-        console.error("Error fetching PPT and slides from Supabase:", err);
+        console.error("Error fetching Presentation and slides from Supabase:", err);
       } finally {
         if (!isCancelled) setIsLoadingPpt(false);
       }
@@ -277,8 +278,8 @@ function TopicContent() {
     setUserAnswers({});
     setCurrentMcqIndex(0);
 
-    const topicName = pptData?.name || topicQuery || "Mathematics - Fractions & Decimals";
-    const categoryName = pptData?.category || "General Education";
+    const topicName = pptData?.topic_name || topicQuery || "Mathematics - Fractions & Decimals";
+    const categoryName = pptData?.topic_category || "General Education";
 
     try {
       const response = await fetch("/api/generate-mcq", {
@@ -443,19 +444,19 @@ function TopicContent() {
     };
   }, [currentSlideIndex, pptData, isPptFullscreenOpen, isLoadingPdf, pdfNumPages]);
 
-  // Diagram record from 'slide' table strictly matching s_no === currentSlideIndex
+  // Diagram record from 'slides' table strictly matching slide_no === currentSlideIndex
   const matchedDiagramSlide = dbSlides.find(
-    (s) => Number(s.s_no) === currentSlideIndex
+    (s) => Number(s.slide_no) === currentSlideIndex
   );
 
-  // Active diagram image strictly from 'slide' table
+  // Active diagram image strictly from 'slides' table
   const currentDiagramImage = matchedDiagramSlide?.image || "";
   const currentVideoUrl = matchedDiagramSlide?.video || "";
 
   // Helper object for modal popups and video lesson references
   const currentSlide = {
     slideNumber: currentSlideIndex,
-    title: `${pptData?.name || topicQuery} - Slide ${currentSlideIndex}`,
+    title: `${pptData?.topic_name || topicQuery} - Slide ${currentSlideIndex}`,
     pptImage: matchedDiagramSlide?.image || "",
     leftDiagram: {
       image: currentDiagramImage,
@@ -479,8 +480,8 @@ function TopicContent() {
   useEffect(() => {
     if (isLoadingPpt) return;
 
-    const topicName = pptData?.name || topicQuery || "Mathematics - Fractions & Decimals";
-    const categoryName = pptData?.category || "General Education";
+    const topicName = pptData?.topic_name || topicQuery || "Mathematics - Fractions & Decimals";
+    const categoryName = pptData?.topic_category || "General Education";
     const currentTopicKey = `${urlTopicId || ""}_${topicName}`;
 
     // If switching to a new topic (or opening for first time), reset store for new topic
@@ -493,7 +494,7 @@ function TopicContent() {
         },
       ]);
     }
-  }, [isLoadingPpt, pptData?.name, pptData?.category, topicQuery, urlTopicId, activeTopicKey, setActiveTopicKey, setChatMessages]);
+  }, [isLoadingPpt, pptData?.topic_name, pptData?.topic_category, topicQuery, urlTopicId, activeTopicKey, setActiveTopicKey, setChatMessages]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isSendingChat) return;
@@ -503,8 +504,8 @@ function TopicContent() {
     setInputMessage("");
     setIsSendingChat(true);
 
-    const topicName = pptData?.name || topicQuery || "Mathematics - Fractions & Decimals";
-    const categoryName = pptData?.category || "General Education";
+    const topicName = pptData?.topic_name || topicQuery || "Mathematics - Fractions & Decimals";
+    const categoryName = pptData?.topic_category || "General Education";
 
     try {
       const res = await fetch("/api/chat-assistant", {
@@ -582,7 +583,7 @@ function TopicContent() {
               {isLoadingPpt ? (
                 <span className="animate-pulse text-slate-400">Loading topic...</span>
               ) : (
-                pptData?.name || topicQuery
+                pptData?.topic_name || topicQuery
               )}
             </h1>
           </div>
@@ -612,10 +613,10 @@ function TopicContent() {
                 </button>
               </div>
 
-              {/* Compact List of All Diagram Images from 'slide' table */}
+              {/* Compact List of All Diagram Images from 'slides' table */}
               <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[520px] p-1 scrollbar-thin">
-                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, s_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
-                  const slideNo = Number(slideRec.s_no);
+                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, slide_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
+                  const slideNo = Number(slideRec.slide_no);
                   const isCurrent = slideNo === currentSlideIndex;
                   const slideImg = slideRec.image;
 
@@ -762,10 +763,10 @@ function TopicContent() {
                 </div>
               </div>
 
-              {/* Compact Vertical List of All Slide Videos from 'slide' table */}
+              {/* Compact Vertical List of All Slide Videos from 'slides' table */}
               <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[520px] p-1 scrollbar-thin">
-                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, s_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
-                  const slideNo = Number(slideRec.s_no);
+                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, slide_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
+                  const slideNo = Number(slideRec.slide_no);
                   const isCurrent = slideNo === currentSlideIndex;
                   const slideImg = slideRec.image;
                   const slideVid = slideRec.video;
@@ -1141,8 +1142,8 @@ function TopicContent() {
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">AI Powered</span>
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      Topic: <span className="text-slate-800 font-bold">{pptData?.name || topicQuery}</span>
-                      {pptData?.category && <> • Category: <span className="text-[#006783] font-bold">{pptData.category}</span></>}
+                      Topic: <span className="text-slate-800 font-bold">{pptData?.topic_name || topicQuery}</span>
+                      {pptData?.topic_category && <> • Category: <span className="text-[#006783] font-bold">{pptData.topic_category}</span></>}
                     </p>
                   </div>
                 </div>
@@ -1212,7 +1213,7 @@ function TopicContent() {
                   <div>
                     <h4 className="font-bold text-slate-900 text-base">Generating {selectedQuestionCount} Questions with AI...</h4>
                     <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                      Analyzing <span className="font-bold text-slate-700">{pptData?.name || topicQuery}</span> ({pptData?.category || "General Education"})
+                      Analyzing <span className="font-bold text-slate-700">{pptData?.topic_name || topicQuery}</span> ({pptData?.topic_category || "General Education"})
                     </p>
                   </div>
                 </div>
@@ -1390,8 +1391,8 @@ function TopicContent() {
                   <div>
                     <h3 className="font-bold text-slate-900 text-base sm:text-lg">Ask Anything (AI Assistant)</h3>
                     <p className="text-xs text-slate-500 font-medium">
-                      Topic: <span className="text-slate-800 font-bold">{pptData?.name || topicQuery}</span>
-                      {pptData?.category && <> • Category: <span className="text-[#d96b43] font-bold">{pptData.category}</span></>}
+                      Topic: <span className="text-slate-800 font-bold">{pptData?.topic_name || topicQuery}</span>
+                      {pptData?.topic_category && <> • Category: <span className="text-[#d96b43] font-bold">{pptData.topic_category}</span></>}
                     </p>
                   </div>
                 </div>
@@ -1447,7 +1448,7 @@ function TopicContent() {
                       </div>
                       <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-none text-xs text-slate-500 flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full border-2 border-[#d96b43] border-t-transparent animate-spin" />
-                        AI is analyzing your question for {pptData?.name || topicQuery}...
+                        AI is analyzing your question for {pptData?.topic_name || topicQuery}...
                       </div>
                     </motion.div>
                   )}
@@ -1458,7 +1459,7 @@ function TopicContent() {
               <div className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder={`Ask anything about ${pptData?.name || topicQuery}...`}
+                  placeholder={`Ask anything about ${pptData?.topic_name || topicQuery}...`}
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !isSendingChat && handleSendMessage()}
