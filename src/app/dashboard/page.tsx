@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Hero3DAnimation } from "@/components/Hero3DAnimation";
+import { AnimatedGlobe } from "@/components/AnimatedGlobe";
 import {
   GraduationCap,
   Users,
@@ -14,7 +15,6 @@ import {
   Menu,
   X,
   PanelLeft,
-  Send,
   LogOut
 } from "lucide-react";
 
@@ -159,6 +159,7 @@ export default function DashboardPage() {
     pptName: string;
     topic_id?: number;
     category?: string;
+    tags?: string[];
   }
 
   const [pptSuggestions, setPptSuggestions] = useState<SuggestionResult[]>([]);
@@ -215,6 +216,7 @@ export default function DashboardPage() {
                   pptName: item.topic_name || tag,
                   topic_id: item.topic_id || item.id,
                   category: item.topic_category,
+                  tags: cleanTags,
                 });
               }
             }
@@ -229,6 +231,7 @@ export default function DashboardPage() {
                 pptName: item.topic_name,
                 topic_id: item.topic_id || item.id,
                 category: item.topic_category,
+                tags: cleanTags,
               });
             }
           }
@@ -386,7 +389,6 @@ export default function DashboardPage() {
               {schoolName}
             </h1>
           </div>
-
           {/* Logout Action */}
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -401,13 +403,16 @@ export default function DashboardPage() {
         </header>
 
         {/* Main Hero & Content Section */}
-        <main className="relative z-10 flex-grow p-6 md:p-12 flex flex-col justify-between items-center w-full max-w-5xl mx-auto min-h-[calc(100vh-80px)]">
+        <main className="relative z-10 flex-grow p-6 md:p-12 flex flex-col justify-between items-center w-full max-w-5xl mx-auto min-h-[calc(100vh-80px)] overflow-hidden">
+          {/* Subtle Rotating 3D Wireframe Earth/Globe */}
+          <AnimatedGlobe />
+
           {/* Top Heading */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="w-full pt-4 md:pt-8 text-center flex items-center justify-center gap-4 flex-wrap"
+            className="w-full pt-4 md:pt-8 text-center flex items-center justify-center gap-4 flex-wrap relative z-20"
           >
             <motion.div
               animate={{ rotate: [0, 90, 180, 270, 360] }}
@@ -415,9 +420,21 @@ export default function DashboardPage() {
             >
               <TerracottaStar />
             </motion.div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight max-w-4xl">
+            <h1
+              className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight max-w-4xl"
+              style={{
+                textShadow:
+                  "0 0 30px rgba(255, 255, 255, 1), 0 0 50px rgba(255, 255, 255, 0.9), 0 0 20px rgba(0, 103, 131, 0.25), 0 2px 10px rgba(0, 0, 0, 0.15)"
+              }}
+            >
               Empowering Your Academic Journey with an{" "}
-              <span className="text-[#096145]">
+              <span
+                className="text-[#096145]"
+                style={{
+                  textShadow:
+                    "0 0 25px rgba(255, 255, 255, 1), 0 0 20px rgba(9, 97, 69, 0.4)"
+                }}
+              >
                 All-in-One Digital Content Library.
               </span>
             </h1>
@@ -434,7 +451,7 @@ export default function DashboardPage() {
             <motion.div
               whileHover={{ scale: 1.01 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full bg-white rounded-[28px] border border-slate-300 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] focus-within:border-[#244ebf] focus-within:ring-2 focus-within:ring-[#244ebf]/20 transition-all text-left"
+              className="relative w-full bg-white/95 backdrop-blur-md rounded-[28px] border border-[#006783]/20 p-6 shadow-[0_15px_45px_rgba(0,103,131,0.18),0_5px_15px_rgba(9,97,69,0.12)] focus-within:border-[#006783] focus-within:ring-4 focus-within:ring-[#006783]/15 focus-within:shadow-[0_20px_55px_rgba(0,103,131,0.28),0_8px_25px_rgba(9,97,69,0.2)] transition-all text-left"
             >
               {/* Text Input Area */}
               <textarea
@@ -478,14 +495,28 @@ export default function DashboardPage() {
                             key={idx}
                             whileHover={{ backgroundColor: "#f8fafc", x: 4 }}
                             onMouseDown={() => handleSuggestionClick(item)}
-                            className="px-5 py-3.5 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors flex items-center justify-between border-b border-slate-100 last:border-none"
+                            className="px-5 py-3.5 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors flex items-start justify-between border-b border-slate-100 last:border-none gap-3"
                           >
-                            <div className="flex items-center gap-3">
-                              <Search className="w-4 h-4 text-slate-400 shrink-0" />
-                              <span>{item.displayLabel}</span>
+                            <div className="flex items-start gap-3 min-w-0">
+                              <Search className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium text-slate-800 break-words">{item.displayLabel}</span>
+                                {item.tags && item.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                    {item.tags.map((tag, tIdx) => (
+                                      <span
+                                        key={tIdx}
+                                        className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-200/60 px-2 py-0.5 rounded-md"
+                                      >
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             {item.category && (
-                              <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+                              <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full shrink-0">
                                 {item.category}
                               </span>
                             )}

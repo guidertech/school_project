@@ -237,15 +237,29 @@ function TopicContent() {
   const pdfDocRef = useRef<any>(null);
 
   // Total slides determined from PDF document pages or slide table rows
-  const totalSlides = pdfNumPages && pdfNumPages > 0 ? pdfNumPages : (dbSlides.length > 0 ? dbSlides.length : 3);
+  const maxDbSlideNo = dbSlides.length > 0 ? Math.max(...dbSlides.map((s) => Number(s.slide_no) || 0), dbSlides.length) : 0;
+  const totalSlides = pdfNumPages && pdfNumPages > 0 ? pdfNumPages : (maxDbSlideNo > 0 ? maxDbSlideNo : 3);
 
-  // Reset to slide 1 whenever ppt or slides change
+  // Consolidated list of all slides from 1 to totalSlides
+  const allSlidesList = Array.from({ length: totalSlides }, (_, i) => {
+    const slideNo = i + 1;
+    const matched = dbSlides.find((s) => Number(s.slide_no) === slideNo);
+    return {
+      id: matched?.id || slideNo,
+      slide_no: slideNo,
+      image: matched?.image || pdfThumbnails[slideNo] || "",
+      video: matched?.video || "",
+      topic_id: matched?.topic_id || 0,
+    };
+  });
+
+  // Reset to slide 1 whenever presentation changes
   useEffect(() => {
     setCurrentSlideIndex(1);
     setPdfNumPages(null);
     setPdfThumbnails({});
     pdfDocRef.current = null;
-  }, [pptData?.id, dbSlides.length]);
+  }, [pptData?.id]);
 
   // Modals state
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -327,11 +341,26 @@ function TopicContent() {
         const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.js" as any);
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
 
-        const loadingTask = pdfjsLib.getDocument(pptData.link);
-        const doc = await loadingTask.promise;
+        let doc: any = null;
+        try {
+          const res = await fetch(pptData.link);
+          if (res.ok) {
+            const buffer = await res.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+            doc = await loadingTask.promise;
+          }
+        } catch (fetchErr) {
+          console.warn("ArrayBuffer fetch failed, falling back to direct URL loading:", fetchErr);
+        }
+
+        if (!doc) {
+          const loadingTask = pdfjsLib.getDocument(pptData.link);
+          doc = await loadingTask.promise;
+        }
 
         if (isCancelled) return;
 
+        console.log("PDF successfully loaded with total pages:", doc.numPages);
         pdfDocRef.current = doc;
         setPdfNumPages(doc.numPages);
 
@@ -449,8 +478,8 @@ function TopicContent() {
     (s) => Number(s.slide_no) === currentSlideIndex
   );
 
-  // Active diagram image strictly from 'slides' table
-  const currentDiagramImage = matchedDiagramSlide?.image || "";
+  // Active diagram image strictly from 'slides' table or PDF thumbnail fallback
+  const currentDiagramImage = matchedDiagramSlide?.image || pdfThumbnails[currentSlideIndex] || "";
   const currentVideoUrl = matchedDiagramSlide?.video || "";
 
   // Helper object for modal popups and video lesson references
@@ -613,9 +642,9 @@ function TopicContent() {
                 </button>
               </div>
 
-              {/* Compact List of All Diagram Images from 'slides' table */}
+              {/* Compact List of Diagram Images strictly from 'slides' DB table */}
               <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[520px] p-1 scrollbar-thin">
-                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, slide_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
+                {(dbSlides.length > 0 ? dbSlides : allSlidesList).map((slideRec) => {
                   const slideNo = Number(slideRec.slide_no);
                   const isCurrent = slideNo === currentSlideIndex;
                   const slideImg = slideRec.image;
@@ -763,9 +792,9 @@ function TopicContent() {
                 </div>
               </div>
 
-              {/* Compact Vertical List of All Slide Videos from 'slides' table */}
+              {/* Compact Vertical List of Slide Videos strictly from 'slides' DB table */}
               <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[520px] p-1 scrollbar-thin">
-                {(dbSlides.length > 0 ? dbSlides : Array.from({ length: totalSlides }, (_, i) => ({ id: i + 1, slide_no: i + 1, image: "", video: "", topic_id: 0 }))).map((slideRec) => {
+                {(dbSlides.length > 0 ? dbSlides : allSlidesList).map((slideRec) => {
                   const slideNo = Number(slideRec.slide_no);
                   const isCurrent = slideNo === currentSlideIndex;
                   const slideImg = slideRec.image;
